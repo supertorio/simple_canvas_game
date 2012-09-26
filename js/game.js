@@ -5,6 +5,60 @@ canvas.width = 512;
 canvas.height = 480;
 document.body.appendChild(canvas);
 
+var spriteWidth = 33;
+var spriteHeight = 33;
+
+
+// Image Sprite Base
+var SpriteSheet = function(data) {
+    this.load(data);
+};
+ 
+SpriteSheet.prototype = {
+    _sprites: [],
+    _width: 0,
+    _height: 0,
+ 
+    load: function(data) {
+        this._height = data.height;
+        this._width = data.width;
+        this._sprites = data.sprites;
+    },
+ 
+    getOffset: function(spriteName) {
+        //Go through all sprites to find the required one
+        for(var i = 0, len = this._sprites.length; i < len; i++) {
+            var sprite = this._sprites[i];
+ 
+            if(sprite.name == spriteName) {
+                //To get the offset, multiply by sprite width
+                //Sprite-specific x and y offset is then added into it.
+                return {
+                    x: (i * this._width) + (sprite.x||0),
+                    y: (sprite.y||0),
+                    width: this._width,
+                    height: this._height
+                };
+            }
+        }
+ 
+        return null;
+    }
+};
+
+// Define Sprites
+var sprites = new SpriteSheet({
+    width: 33,
+    height: 33,
+    sprites: [
+        { name: 'girl_forward_walk_1',	x: 0, y: 0 },
+        { name: 'girl_forward_stand',	x: 0, y: 1 },
+        { name: 'girl_forward_walk_2',	x: 0, y: 1 },
+    ]
+});
+
+
+
 // Background image
 var bgReady = false;
 var bgImage = new Image();
@@ -19,7 +73,7 @@ var heroImage = new Image();
 heroImage.onload = function () {
 	heroReady = true;
 };
-heroImage.src = "images/hero.png";
+heroImage.src = "images/RE3___Monster_Sprites_v1_0_by_DoubleLeggy.png";
 
 // Monster image
 var monsterReady = false;
@@ -49,8 +103,8 @@ addEventListener("keyup", function (e) {
 
 // Reset the game when the player catches a monster
 var reset = function () {
-	hero.x = canvas.width / 2;
-	hero.y = canvas.height / 2;
+	if (!hero.x) hero.x = canvas.width / 2;
+	if (!hero.y) hero.y = canvas.height / 2;
 
 	// Throw the monster somewhere on the screen randomly
 	monster.x = 32 + (Math.random() * (canvas.width - 64));
@@ -91,7 +145,9 @@ var render = function () {
 	}
 
 	if (heroReady) {
-		ctx.drawImage(heroImage, hero.x, hero.y);
+		var frame = sprites.getOffset('girl_forward_stand');
+		ctx.drawImage(heroImage, frame.x, frame.y, spriteWidth, spriteHeight, hero.x, hero.y, 33, 33);
+		//ctx.drawImage(heroImage, );
 	}
 
 	if (monsterReady) {
