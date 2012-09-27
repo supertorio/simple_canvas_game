@@ -1,56 +1,26 @@
 // Create the canvas
 var canvas = document.createElement("canvas");
 var ctx = canvas.getContext("2d");
-canvas.width = 512;
+canvas.width = 640;
 canvas.height = 480;
 document.body.appendChild(canvas);
 
+var roomWidth = 1024;
+var roomHeight = 768;
+var roomOffsetTop = 0;
+var roomOffsetLeft = 0;
 var spriteWidth = 32;
 var spriteHeight = 32;
 
+var bounds = {
+	top: 0,
+	left: 0,
+	right: (canvas.width - spriteWidth),
+	bottom: (canvas.height - spriteHeight)
+}
 
 
 
-
-
-
-
-// Image Sprite Base
-var SpriteSheet = function(data) {
-    this.load(data);
-};
- 
-SpriteSheet.prototype = {
-    _sprites: [],
-    _width: 0,
-    _height: 0,
- 
-    load: function(data) {
-        this._height = data.height;
-        this._width = data.width;
-        this._sprites = data.sprites;
-    },
- 
-    getOffset: function(spriteName) {
-        //Go through all sprites to find the required one
-        for(var i = 0, len = this._sprites.length; i < len; i++) {
-            var sprite = this._sprites[i];
- 
-            if(sprite.name == spriteName) {
-                //To get the offset, multiply by sprite width
-                //Sprite-specific x and y offset is then added into it.
-                return {
-                    x: ((sprite.x*this._width)||0),
-                    y: ((sprite.y*this._height)||0),
-                    width: this._width,
-                    height: this._height
-                };
-            }
-        }
- 
-        return null;
-    }
-};
 
 // Define Sprites
 var sprites = new SpriteSheet({
@@ -76,46 +46,9 @@ var sprites = new SpriteSheet({
 
 
 
-var Animation = function(data, sprites) {
-    this.load(data);
-    this._sprites = sprites;
-};
- 
-Animation.prototype = {
-    _frames: [],
-    _frame: null,
-    _frameDuration: 0,
- 
-    load: function(data) {
-        this._frames = data;
- 
-        //Initialize the first frame
-        this._frameIndex = 0;
-        this._frameDuration = data[0].time;
-    },
- 
-    animate: function(deltaTime) {
-        //Reduce time passed from the duration to show a frame        
-        this._frameDuration -= deltaTime;
- 
-        //When the display duration has passed
-        if(this._frameDuration <= 0) {
-            //Change to next frame, or the first if ran out of frames
-            this._frameIndex++;
-            if(this._frameIndex == this._frames.length) {
-                this._frameIndex = 0;
-            }
- 
-            //Change duration to duration of new frame
-            this._frameDuration = this._frames[this._frameIndex].time;
-        }
-    },
- 
-    getSprite: function() {
-        //Return the sprite for the current frame
-        return this._sprites.getOffset(this._frames[this._frameIndex].sprite);
-    }
-}
+
+
+
 
 
 
@@ -136,6 +69,10 @@ bgImage.onload = function () {
 	bgReady = true;
 };
 bgImage.src = "images/background.png";
+
+
+
+
 
 // Hero image
 var heroReady = false;
@@ -169,6 +106,12 @@ heroImage.onload = function () {
 };
 heroImage.src = "images/RE3___Monster_Sprites_v1_0_by_DoubleLeggy.png";
 
+
+
+
+
+
+
 // Monster image
 var monsterReady = false;
 var monsterImage = new Image();
@@ -176,6 +119,12 @@ monsterImage.onload = function () {
 	monsterReady = true;
 };
 monsterImage.src = "images/monster.png";
+
+
+
+
+
+
 
 // Game objects
 var hero = {
@@ -187,16 +136,21 @@ hero.direction = "forward";
 var monster = {};
 var monstersCaught = 0;
 
+
+
+
+
+
 // Handle keyboard controls
 var keysDown = {};
-
 addEventListener("keydown", function (e) {
 	keysDown[e.keyCode] = true;
 }, false);
-
 addEventListener("keyup", function (e) {
 	delete keysDown[e.keyCode];
 }, false);
+
+
 
 // Reset the game when the player catches a monster
 var reset = function () {
@@ -208,32 +162,84 @@ var reset = function () {
 	monster.y = 32 + (Math.random() * (canvas.height - 64));
 };
 
+
+
+
 // Update game objects
 var update = function (modifier) {
-	if (38 in keysDown) { // Player holding up
-		hero.y -= hero.speed * modifier;
+	
+	var backgroundSlideTrigger = 0;
+	var roomOffsetBoundry = 0;
+	var playerDelta = hero.speed * modifier;;
+	
+	if (38 in keysDown)  // Player holding up
+	{
+		backgroundSlideTrigger = bounds.top+(2*spriteWidth);
+		roomOffsetBoundry = 0;
+		
+		if ( hero.y < backgroundSlideTrigger && roomOffsetTop > roomOffsetBoundry )
+		{
+			roomOffsetTop -= playerDelta;
+			if( roomOffsetTop < roomOffsetBoundry ) roomOffsetTop = roomOffsetBoundry;
+			hero.y = backgroundSlideTrigger;
+		}
+		else hero.y -= playerDelta;
+		
 		hero.animation = heroWalkBackwards;
 		hero.direction = "back";
 		hero.moving = true;
 	}
-	else if (40 in keysDown) { // Player holding down
-		hero.y += hero.speed * modifier;
+	else if (40 in keysDown)  // Player holding down
+	{
+		backgroundSlideTrigger = bounds.bottom-(2*spriteWidth);
+		roomOffsetBoundry = roomHeight - canvas.height;
+		
+		if ( hero.y > backgroundSlideTrigger && roomOffsetTop < roomOffsetBoundry )
+		{
+			roomOffsetTop += playerDelta;
+			if( roomOffsetTop > roomOffsetBoundry ) roomOffsetTop = roomOffsetBoundry;
+			hero.y = backgroundSlideTrigger;
+		}
+		else hero.y += playerDelta;
+
 		hero.animation = heroWalkForward;
 		hero.direction = "forward";
 		hero.moving = true;
 	}
-	else if (37 in keysDown) { // Player holding left
-		hero.x -= hero.speed * modifier;
+	else if (37 in keysDown) // Player holding left
+	{
+		backgroundSlideTrigger = bounds.left+(2*spriteWidth);
+		roomOffsetBoundry = 0;
+
+		if ( hero.x < backgroundSlideTrigger && roomOffsetLeft > roomOffsetBoundry )
+		{
+			roomOffsetLeft -= playerDelta;
+			if( roomOffsetLeft < roomOffsetBoundry ) roomOffsetLeft = roomOffsetBoundry;
+			hero.x = backgroundSlideTrigger;
+		}
+		else hero.x -= playerDelta;
 		hero.animation = heroWalkLeft;
 		hero.direction = "left";
 		hero.moving = true;
 	}
-	else if (39 in keysDown) { // Player holding right
-		hero.x += hero.speed * modifier;
+	else if (39 in keysDown) // Player holding right
+	{
+		backgroundSlideTrigger = bounds.right-(2*spriteWidth);
+		roomOffsetBoundry = roomWidth - canvas.width;
+		
+		if ( hero.x > backgroundSlideTrigger && roomOffsetLeft < roomOffsetBoundry )
+		{
+			roomOffsetLeft += playerDelta;
+			if( roomOffsetLeft > roomOffsetBoundry ) roomOffsetLeft = roomOffsetBoundry;
+			hero.x = backgroundSlideTrigger;
+		}
+		else hero.x += hero.speed * modifier;
 		hero.animation = heroWalkRight;
 		hero.direction = "right";
 		hero.moving = true;
-	} else {
+	}
+	else
+	{
 		hero.moving = false;
 	}
 
@@ -248,23 +254,24 @@ var update = function (modifier) {
 		reset();
 	}
 	
+	
 	// Border Collisions
-	var bounds = {
-		top: 0,
-		left: 0,
-		right: (canvas.width - spriteWidth),
-		bottom: (canvas.height - spriteHeight)
-	}
+	
 	if ( hero.y <= bounds.top )    { hero.y = bounds.top; }
 	if ( hero.y >= bounds.bottom ) { hero.y = bounds.bottom; }
 	if ( hero.x <= bounds.left )   { hero.x = bounds.left ; }
 	if ( hero.x >= bounds.right )  { hero.x = bounds.right; }
 };
 
+
+
+
 // Draw everything
 var render = function (modifier) {
+	ctx.clearRect(0,0,canvas.width,canvas.height);
+	
 	if (bgReady) {
-		ctx.drawImage(bgImage, 0, 0);
+		ctx.drawImage(bgImage, roomOffsetLeft, roomOffsetTop, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
 	}
 
 	if (heroReady) {
