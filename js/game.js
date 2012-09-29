@@ -1,9 +1,36 @@
+// constants
+var DIRECTION_FORWARD = 1;
+var DIRECTION_LEFT = 2;
+var DIRECTION_RIGHT = 3;
+var DIRECTION_BACK = 4;
+
+
+
+
+
+
 // Create the canvas
+var then;
+var gameLoop;
+var gameRunning = false;
 var canvas = document.createElement("canvas");
 var ctx = canvas.getContext("2d");
 canvas.width = 640;
 canvas.height = 480;
 document.body.appendChild(canvas);
+
+
+
+
+$('#toggleGame').click(function(){
+	if( gameRunning ) {
+		stopGameLoop();
+	} else {
+		startGameLoop();
+	}
+});
+
+
 
 var roomWidth = 1024;
 var roomHeight = 768;
@@ -11,34 +38,50 @@ var roomOffsetTop = 0;
 var roomOffsetLeft = 0;
 var spriteWidth = 32;
 var spriteHeight = 32;
+var spriteWidthScaled = 48;
+var spriteHeightScaled = 48;
+
 
 var bounds = {
 	top: 0,
 	left: 0,
-	right: (canvas.width - spriteWidth),
-	bottom: (canvas.height - spriteHeight)
+	right: (canvas.width - spriteWidthScaled),
+	bottom: (canvas.height - spriteHeightScaled)
 }
-
 
 
 
 // Define Sprites
 var sprites = new SpriteSheet({
-    width: spriteWidth,
-    height: spriteHeight,
-    sprites: [
-        { name: 'girl_forward_walk_1',	x: 0, y: 0 },
-        { name: 'girl_forward_walk_2',	x: 1, y: 0 },
-        { name: 'girl_forward_walk_3',	x: 2, y: 0 },
+	width: spriteWidth,
+	height: spriteHeight,
+	sprites: [
+		{ name: 'girl_forward_walk_1',	x: 0, y: 0 },
+		{ name: 'girl_forward_walk_2',	x: 1, y: 0 },
+		{ name: 'girl_forward_walk_3',	x: 2, y: 0 },
 		{ name: 'girl_left_walk_1',		x: 0, y: 1 },
-        { name: 'girl_left_walk_2',		x: 1, y: 1 },
-        { name: 'girl_left_walk_3',		x: 2, y: 1 },
+		{ name: 'girl_left_walk_2',		x: 1, y: 1 },
+		{ name: 'girl_left_walk_3',		x: 2, y: 1 },
 		{ name: 'girl_right_walk_1',	x: 0, y: 2 },
-        { name: 'girl_right_walk_2',	x: 1, y: 2 },
-        { name: 'girl_right_walk_3',	x: 2, y: 2 },
+		{ name: 'girl_right_walk_2',	x: 1, y: 2 },
+		{ name: 'girl_right_walk_3',	x: 2, y: 2 },
 		{ name: 'girl_back_walk_1',		x: 0, y: 3 },
-        { name: 'girl_back_walk_2',		x: 1, y: 3 },
-        { name: 'girl_back_walk_3',		x: 2, y: 3 }
+		{ name: 'girl_back_walk_2',		x: 1, y: 3 },
+		{ name: 'girl_back_walk_3',		x: 2, y: 3 },
+
+
+		{ name: 'zombie_forward_walk_1',	x: 6, y: 4 },
+		{ name: 'zombie_forward_walk_2',	x: 7, y: 4 },
+		{ name: 'zombie_forward_walk_3',	x: 8, y: 4 },
+		{ name: 'zombie_left_walk_1',		x: 6, y: 5 },
+		{ name: 'zombie_left_walk_2',		x: 7, y: 5 },
+		{ name: 'zombie_left_walk_3',		x: 8, y: 5 },
+		{ name: 'zombie_right_walk_1',		x: 6, y: 6 },
+		{ name: 'zombie_right_walk_2',		x: 7, y: 6 },
+		{ name: 'zombie_right_walk_3',		x: 8, y: 6 },
+		{ name: 'zombie_back_walk_1',		x: 6, y: 7 },
+		{ name: 'zombie_back_walk_2',		x: 7, y: 7 },
+		{ name: 'zombie_back_walk_3',		x: 8, y: 7 }
     ]
 });
 
@@ -104,7 +147,7 @@ var heroWalkRight = new Animation([
 heroImage.onload = function () {
 	heroReady = true;
 };
-heroImage.src = "images/RE3___Monster_Sprites_v1_0_by_DoubleLeggy.png";
+heroImage.src = "images/characterSprites.png";
 
 
 
@@ -115,10 +158,35 @@ heroImage.src = "images/RE3___Monster_Sprites_v1_0_by_DoubleLeggy.png";
 // Monster image
 var monsterReady = false;
 var monsterImage = new Image();
+var monsterAnimSpeed = .6;
+var zombieWalkForward = new Animation([
+    { sprite: 'zombie_forward_walk_1', time: monsterAnimSpeed },
+    { sprite: 'zombie_forward_walk_2', time: monsterAnimSpeed },
+    { sprite: 'zombie_forward_walk_3', time: monsterAnimSpeed },
+    { sprite: 'zombie_forward_walk_2', time: monsterAnimSpeed }
+], sprites);
+var zombieWalkLeft = new Animation([
+    { sprite: 'zombie_left_walk_1', time: monsterAnimSpeed },
+    { sprite: 'zombie_left_walk_2', time: monsterAnimSpeed },
+    { sprite: 'zombie_left_walk_3', time: monsterAnimSpeed },
+    { sprite: 'zombie_left_walk_2', time: monsterAnimSpeed }
+], sprites);
+var zombieWalkRight = new Animation([
+    { sprite: 'zombie_right_walk_1', time: monsterAnimSpeed },
+    { sprite: 'zombie_right_walk_2', time: monsterAnimSpeed },
+    { sprite: 'zombie_right_walk_3', time: monsterAnimSpeed },
+    { sprite: 'zombie_right_walk_2', time: monsterAnimSpeed }
+], sprites);
+var zombieWalkBack = new Animation([
+    { sprite: 'zombie_back_walk_1', time: monsterAnimSpeed },
+    { sprite: 'zombie_back_walk_2', time: monsterAnimSpeed },
+    { sprite: 'zombie_back_walk_3', time: monsterAnimSpeed },
+    { sprite: 'zombie_back_walk_2', time: monsterAnimSpeed }
+], sprites);
 monsterImage.onload = function () {
 	monsterReady = true;
 };
-monsterImage.src = "images/monster.png";
+monsterImage.src = "images/characterSprites.png";
 
 
 
@@ -133,7 +201,14 @@ var hero = {
 hero.animation = heroWalkForward;
 hero.moving = false;
 hero.direction = "forward";
-var monster = {};
+
+var monstersInGame = 3;
+var monsters = Array();
+for (var i=0;i<monstersInGame;i++){
+	monsters[i]={
+		speed: 20
+	};
+}
 var monstersCaught = 0;
 
 
@@ -152,15 +227,35 @@ addEventListener("keyup", function (e) {
 
 
 
-// Reset the game when the player catches a monster
-var reset = function () {
-	if (!hero.x) hero.x = canvas.width / 2;
-	if (!hero.y) hero.y = canvas.height / 2;
-
-	// Throw the monster somewhere on the screen randomly
-	monster.x = 32 + (Math.random() * (canvas.width - 64));
-	monster.y = 32 + (Math.random() * (canvas.height - 64));
-};
+function resetMonster(monsterId)
+{
+	// Randomly Position Monster
+	monsters[monsterId].posX = 32 + (Math.random() * (roomWidth - 64));
+	monsters[monsterId].posY = 32 + (Math.random() * (roomHeight - 64));
+	monsters[monsterId].x = monsters[monsterId].posX - roomOffsetLeft;
+	monsters[monsterId].y = monsters[monsterId].posY - roomOffsetTop;
+	
+	// Set Inital Monster Direction
+	var randDirection = Math.floor((Math.random()*4)+1);
+	switch(randDirection) {
+		case 1:
+			monsters[monsterId].direction = DIRECTION_FORWARD;
+			monsters[monsterId].animation = zombieWalkForward;
+			break;
+		case 2:
+			monsters[monsterId].direction = DIRECTION_LEFT;
+			monsters[monsterId].animation = zombieWalkLeft;
+			break;
+		case 3:
+			monsters[monsterId].direction = DIRECTION_RIGHT;
+			monsters[monsterId].animation = zombieWalkRight;
+			break;
+		case 4:
+			monsters[monsterId].direction = DIRECTION_BACK;
+			monsters[monsterId].animation = zombieWalkBack;
+			break;
+	}
+}
 
 
 
@@ -170,7 +265,7 @@ var update = function (modifier) {
 	
 	var backgroundSlideTrigger = 0;
 	var roomOffsetBoundry = 0;
-	var playerDelta = hero.speed * modifier;;
+	var playerDelta = hero.speed * modifier;
 	
 	if (38 in keysDown)  // Player holding up
 	{
@@ -242,25 +337,72 @@ var update = function (modifier) {
 	{
 		hero.moving = false;
 	}
-
-	// Are they touching?
-	if (
-		hero.x <= (monster.x + 32)
-		&& monster.x <= (hero.x + 32)
-		&& hero.y <= (monster.y + 32)
-		&& monster.y <= (hero.y + 32)
-	) {
-		++monstersCaught;
-		reset();
-	}
 	
-	
-	// Border Collisions
-	
+	// Hero Border Collisions
 	if ( hero.y <= bounds.top )    { hero.y = bounds.top; }
 	if ( hero.y >= bounds.bottom ) { hero.y = bounds.bottom; }
 	if ( hero.x <= bounds.left )   { hero.x = bounds.left ; }
 	if ( hero.x >= bounds.right )  { hero.x = bounds.right; }
+	
+
+
+	// Move the monster
+	// Check For Collisions
+	for (var i=0;i<monstersInGame;i++)
+	{
+		
+		// Increment Monster Movement
+		var monsterDelta = monsters[i].speed * modifier;
+		switch (monsters[i].direction)
+		{
+			case DIRECTION_FORWARD:
+				monsters[i].posY += monsterDelta;
+				break;
+			case DIRECTION_LEFT:
+				monsters[i].posX -= monsterDelta;
+				break;
+			case DIRECTION_RIGHT:
+				monsters[i].posX += monsterDelta;
+				break;
+			case DIRECTION_BACK:
+				monsters[i].posY -= monsterDelta;
+				break;
+		}
+		
+		// Adjust for map movement
+		monsters[i].x = monsters[i].posX - roomOffsetLeft;
+		monsters[i].y = monsters[i].posY - roomOffsetTop;
+		
+		
+		// Hero / Monster Collisions
+		if (
+			hero.x <= (monsters[i].x + spriteWidthScaled)
+			&& monsters[i].x <= (hero.x + spriteWidthScaled)
+			&& hero.y <= (monsters[i].y + spriteHeightScaled)
+			&& monsters[i].y <= (hero.y + spriteHeightScaled)
+		) {
+			++monstersCaught;
+			resetMonster(i)
+		}
+		
+		// Border Collisions
+		if ( monsters[i].posY <= 0 ) {
+			monsters[i].direction = DIRECTION_FORWARD;
+			monsters[i].animation = zombieWalkForward;
+		}
+		if ( (monsters[i].posY + spriteHeightScaled) >= roomHeight ) {
+			monsters[i].direction = DIRECTION_BACK;
+			monsters[i].animation = zombieWalkBack;
+		}
+		if ( monsters[i].posX <= 0 ) {
+			monsters[i].direction = DIRECTION_RIGHT;
+			monsters[i].animation = zombieWalkRight;
+		}
+		if ( (monsters[i].posX + spriteWidthScaled) >= roomWidth ) {
+			monsters[i].direction = DIRECTION_LEFT;
+			monsters[i].animation = zombieWalkLeft;
+		}
+	}
 };
 
 
@@ -291,16 +433,21 @@ var render = function (modifier) {
 					frame = sprites.getOffset('girl_right_walk_2');
 					break;
 			}
-			ctx.drawImage(heroImage, frame.x, frame.y, spriteWidth, spriteHeight, hero.x, hero.y, 33, 33);
+			ctx.drawImage(heroImage, frame.x, frame.y, spriteWidth, spriteHeight, hero.x, hero.y, spriteWidthScaled, spriteHeightScaled);
 		} else {
 			hero.animation.animate(modifier);
 			frame = hero.animation.getSprite();
-			ctx.drawImage(heroImage, frame.x, frame.y, spriteWidth, spriteHeight, hero.x, hero.y, 33, 33);
+			ctx.drawImage(heroImage, frame.x, frame.y, spriteWidth, spriteHeight, hero.x, hero.y, spriteWidthScaled, spriteHeightScaled);
 		}
 	}
 
 	if (monsterReady) {
-		ctx.drawImage(monsterImage, monster.x, monster.y);
+		for (var i=0;i<monstersInGame;i++)
+		{
+			monsters[i].animation.animate(modifier);
+			frame = monsters[i].animation.getSprite();
+			ctx.drawImage(monsterImage, frame.x, frame.y, spriteWidth, spriteHeight, monsters[i].x, monsters[i].y, spriteWidthScaled, spriteHeightScaled);
+		}
 	}
 
 	// Score
@@ -308,8 +455,12 @@ var render = function (modifier) {
 	ctx.font = "24px Helvetica";
 	ctx.textAlign = "left";
 	ctx.textBaseline = "top";
-	ctx.fillText("Goblins caught: " + monstersCaught, 32, 32);
+	ctx.fillText("Zombies caught: " + monstersCaught, 32, 32);
 };
+
+
+
+
 
 // The main game loop
 var main = function () {
@@ -322,7 +473,42 @@ var main = function () {
 	then = now;
 };
 
+
+function setUpLevel()
+{
+	// Throw the monster somewhere in the room randomly
+	for (var i=0;i<monstersInGame;i++){
+		resetMonster(i);
+	}
+	
+	// Position Hero in the Center of the Screen
+	hero.x = canvas.width / 2;
+	hero.y = canvas.height / 2;
+}
+
+function startGameLoop() {
+	then = Date.now();
+	gameLoop = setInterval(main, 1); // Execute as fast as possible
+	gameRunning = true;
+	console.log('game starting');
+}
+
+function stopGameLoop() {
+	clearInterval(gameLoop);
+	gameRunning = false;
+	console.log('game stopped');
+}
+
+
+
 // Let's play this game!
-reset();
-var then = Date.now();
-setInterval(main, 1); // Execute as fast as possible
+$(document).ready(function()
+{	
+	setUpLevel()
+	startGameLoop();
+});
+
+
+
+
+
