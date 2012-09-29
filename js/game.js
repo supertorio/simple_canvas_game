@@ -1,27 +1,62 @@
 // constants
+var CANVAS_WIDTH = 640;
+var CANVAS_HEIGHT = 480;
 var DIRECTION_FORWARD = 1;
 var DIRECTION_LEFT = 2;
 var DIRECTION_RIGHT = 3;
 var DIRECTION_BACK = 4;
+var CHARACTER_SPRITE_WIDTH = 32;
+var CHARACTER_SPRITE_HEIGHT = 32;
+var CHARACTER_SPRITE_WIDTH_SCALED = 48;
+var CHARACTER_SPRITE_HEIGHT_SCALED = 48;
 
 
-
-
-
-
-// Create the canvas
+// Game Loop / Timing
 var then;
 var gameLoop;
 var gameRunning = false;
+
+
+// Create the canvas
 var canvas = document.createElement("canvas");
 var ctx = canvas.getContext("2d");
-canvas.width = 640;
-canvas.height = 480;
+canvas.width = CANVAS_WIDTH;
+canvas.height = CANVAS_HEIGHT;
 document.body.appendChild(canvas);
 
 
+/********* Start Load In Image Resources **********/
+// Background image
+var bgReady = false;
+var bgImage = new Image();
+bgImage.onload = function () {
+	bgReady = true;
+};
+bgImage.src = "images/background.png";
 
 
+// Load Character Sprites Image
+var characterSpritesReady = false;
+var characterSpritesImage = new Image();
+characterSpritesImage.onload = function () {
+	characterSpritesReady = true;
+};
+characterSpritesImage.src = "images/characterSprites.png";
+
+/********* End Load In Image Resources **********/
+
+
+// Level Definitions
+var currentLevel = 1;
+var levels = Array();
+levels[0] = {
+	roomWidth: 1024,
+	roomHeight: 768,
+	monstersInGame: 3
+}
+
+
+// Game Pause/Resume Button
 $('#toggleGame').click(function(){
 	if( gameRunning ) {
 		stopGameLoop();
@@ -31,46 +66,85 @@ $('#toggleGame').click(function(){
 });
 
 
-
-var roomWidth = 1024;
-var roomHeight = 768;
-var roomOffsetTop = 0;
-var roomOffsetLeft = 0;
-var spriteWidth = 32;
-var spriteHeight = 32;
-var spriteWidthScaled = 48;
-var spriteHeightScaled = 48;
-
-
-var bounds = {
-	top: 0,
-	left: 0,
-	right: (canvas.width - spriteWidthScaled),
-	bottom: (canvas.height - spriteHeightScaled)
-}
-
-
-
 // Define Sprites
+// Artwork from - http://doubleleggy.deviantart.com/gallery/?offset=168#/d2h3lq9
 var sprites = new SpriteSheet({
-	width: spriteWidth,
-	height: spriteHeight,
+	width: CHARACTER_SPRITE_WIDTH,
+	height: CHARACTER_SPRITE_HEIGHT,
 	sprites: [
-		{ name: 'girl_forward_walk_1',	x: 0, y: 0 },
-		{ name: 'girl_forward_walk_2',	x: 1, y: 0 },
-		{ name: 'girl_forward_walk_3',	x: 2, y: 0 },
-		{ name: 'girl_left_walk_1',		x: 0, y: 1 },
-		{ name: 'girl_left_walk_2',		x: 1, y: 1 },
-		{ name: 'girl_left_walk_3',		x: 2, y: 1 },
-		{ name: 'girl_right_walk_1',	x: 0, y: 2 },
-		{ name: 'girl_right_walk_2',	x: 1, y: 2 },
-		{ name: 'girl_right_walk_3',	x: 2, y: 2 },
-		{ name: 'girl_back_walk_1',		x: 0, y: 3 },
-		{ name: 'girl_back_walk_2',		x: 1, y: 3 },
-		{ name: 'girl_back_walk_3',		x: 2, y: 3 },
-
-
-		{ name: 'zombie_forward_walk_1',	x: 6, y: 4 },
+		{ name: 'jill_forward_walk_1',		x: 0, y: 0 }, // Jill Valentine
+		{ name: 'jill_forward_walk_2',		x: 1, y: 0 },
+		{ name: 'jill_forward_walk_3',		x: 2, y: 0 },
+		{ name: 'jill_left_walk_1',			x: 0, y: 1 },
+		{ name: 'jill_left_walk_2',			x: 1, y: 1 },
+		{ name: 'jill_left_walk_3',			x: 2, y: 1 },
+		{ name: 'jill_right_walk_1',		x: 0, y: 2 },
+		{ name: 'jill_right_walk_2',		x: 1, y: 2 },
+		{ name: 'jill_right_walk_3',		x: 2, y: 2 },
+		{ name: 'jill_back_walk_1',			x: 0, y: 3 },
+		{ name: 'jill_back_walk_2',			x: 1, y: 3 },
+		{ name: 'jill_back_walk_3',			x: 2, y: 3 },
+		{ name: 'carlos_forward_walk_1',	x: 3, y: 0 }, // Carlos Oliveira
+		{ name: 'carlos_forward_walk_2',	x: 4, y: 0 },
+		{ name: 'carlos_forward_walk_3',	x: 5, y: 0 },
+		{ name: 'carlos_left_walk_1',		x: 3, y: 1 },
+		{ name: 'carlos_left_walk_2',		x: 4, y: 1 },
+		{ name: 'carlos_left_walk_3',		x: 5, y: 1 },
+		{ name: 'carlos_right_walk_1',		x: 3, y: 2 },
+		{ name: 'carlos_right_walk_2',		x: 4, y: 2 },
+		{ name: 'carlos_right_walk_3',		x: 5, y: 2 },
+		{ name: 'carlos_back_walk_1',		x: 3, y: 3 },
+		{ name: 'carlos_back_walk_2',		x: 4, y: 3 },
+		{ name: 'carlos_back_walk_3',		x: 5, y: 3 },
+		{ name: 'nicholai_forward_walk_1',	x: 6, y: 0 }, // Nicholai Ginovaef
+		{ name: 'nicholai_forward_walk_2',	x: 7, y: 0 },
+		{ name: 'nicholai_forward_walk_3',	x: 8, y: 0 },
+		{ name: 'nicholai_left_walk_1',		x: 6, y: 1 },
+		{ name: 'nicholai_left_walk_2',		x: 7, y: 1 },
+		{ name: 'nicholai_left_walk_3',		x: 8, y: 1 },
+		{ name: 'nicholai_right_walk_1',	x: 6, y: 2 },
+		{ name: 'nicholai_right_walk_2',	x: 7, y: 2 },
+		{ name: 'nicholai_right_walk_3',	x: 8, y: 2 },
+		{ name: 'nicholai_back_walk_1',		x: 6, y: 3 },
+		{ name: 'nicholai_back_walk_2',		x: 7, y: 3 },
+		{ name: 'nicholai_back_walk_3',		x: 8, y: 3 },
+		{ name: 'nemesis_forward_walk_1',	x: 9, y: 0 }, // Nemesis
+		{ name: 'nemesis_forward_walk_2',	x: 10, y: 0 },
+		{ name: 'nemesis_forward_walk_3',	x: 11, y: 0 },
+		{ name: 'nemesis_left_walk_1',		x: 9,  y: 1 },
+		{ name: 'nemesis_left_walk_2',		x: 10, y: 1 },
+		{ name: 'nemesis_left_walk_3',		x: 11, y: 1 },
+		{ name: 'nemesis_right_walk_1',		x: 9,  y: 2 },
+		{ name: 'nemesis_right_walk_2',		x: 10, y: 2 },
+		{ name: 'nemesis_right_walk_3',		x: 11, y: 2 },
+		{ name: 'nemesis_back_walk_1',		x: 9,  y: 3 },
+		{ name: 'nemesis_back_walk_2',		x: 10, y: 3 },
+		{ name: 'nemesis_back_walk_3',		x: 11, y: 3 },
+		{ name: 'cerberus_forward_walk_1',	x: 0, y: 4 }, // Cerberus
+		{ name: 'cerberus_forward_walk_2',	x: 1, y: 4 },
+		{ name: 'cerberus_forward_walk_3',	x: 2, y: 4 },
+		{ name: 'cerberus_left_walk_1',		x: 0, y: 5 },
+		{ name: 'cerberus_left_walk_2',		x: 1, y: 5 },
+		{ name: 'cerberus_left_walk_3',		x: 2, y: 5 },
+		{ name: 'cerberus_right_walk_1',	x: 0, y: 6 },
+		{ name: 'cerberus_right_walk_2',	x: 1, y: 6 },
+		{ name: 'cerberus_right_walk_3',	x: 2, y: 6 },
+		{ name: 'cerberus_back_walk_1',		x: 0, y: 7 },
+		{ name: 'cerberus_back_walk_2',		x: 1, y: 7 },
+		{ name: 'cerberus_back_walk_3',		x: 2, y: 7 },
+		{ name: 'crow_forward_walk_1',		x: 3, y: 4 }, // Crow
+		{ name: 'crow_forward_walk_2',		x: 4, y: 4 },
+		{ name: 'crow_forward_walk_3',		x: 5, y: 4 },
+		{ name: 'crow_left_walk_1',			x: 3, y: 5 },
+		{ name: 'crow_left_walk_2',			x: 4, y: 5 },
+		{ name: 'crow_left_walk_3',			x: 5, y: 5 },
+		{ name: 'crow_right_walk_1',		x: 3, y: 6 },
+		{ name: 'crow_right_walk_2',		x: 4, y: 6 },
+		{ name: 'crow_right_walk_3',		x: 5, y: 6 },
+		{ name: 'crow_back_walk_1',			x: 3, y: 7 },
+		{ name: 'crow_back_walk_2',			x: 4, y: 7 },
+		{ name: 'crow_back_walk_3',			x: 5, y: 7 },
+		{ name: 'zombie_forward_walk_1',	x: 6, y: 4 }, // Zombie
 		{ name: 'zombie_forward_walk_2',	x: 7, y: 4 },
 		{ name: 'zombie_forward_walk_3',	x: 8, y: 4 },
 		{ name: 'zombie_left_walk_1',		x: 6, y: 5 },
@@ -86,152 +160,138 @@ var sprites = new SpriteSheet({
 });
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Background image
-var bgReady = false;
-var bgImage = new Image();
-bgImage.onload = function () {
-	bgReady = true;
-};
-bgImage.src = "images/background.png";
-
-
-
-
-
-// Hero image
-var heroReady = false;
-var heroImage = new Image();
+// Hero Animations
+var heroAnimSpeed = 0.2;
+var heroName = "nicholai"
 var heroWalkForward = new Animation([
-    { sprite: 'girl_forward_walk_1', time: 0.2 },
-    { sprite: 'girl_forward_walk_2', time: 0.2 },
-    { sprite: 'girl_forward_walk_3', time: 0.2 },
-    { sprite: 'girl_forward_walk_2', time: 0.2 }
+    { sprite: heroName+'_forward_walk_1', time: heroAnimSpeed },
+    { sprite: heroName+'_forward_walk_2', time: heroAnimSpeed },
+    { sprite: heroName+'_forward_walk_3', time: heroAnimSpeed },
+    { sprite: heroName+'_forward_walk_2', time: heroAnimSpeed }
 ], sprites);
 var heroWalkBackwards = new Animation([
-    { sprite: 'girl_back_walk_1', time: 0.2 },
-    { sprite: 'girl_back_walk_2', time: 0.2 },
-    { sprite: 'girl_back_walk_3', time: 0.2 },
-    { sprite: 'girl_back_walk_2', time: 0.2 }
+    { sprite: heroName+'_back_walk_1', time: heroAnimSpeed },
+    { sprite: heroName+'_back_walk_2', time: heroAnimSpeed },
+    { sprite: heroName+'_back_walk_3', time: heroAnimSpeed },
+    { sprite: heroName+'_back_walk_2', time: heroAnimSpeed }
 ], sprites);
 var heroWalkLeft = new Animation([
-    { sprite: 'girl_left_walk_1', time: 0.2 },
-    { sprite: 'girl_left_walk_2', time: 0.2 },
-    { sprite: 'girl_left_walk_3', time: 0.2 },
-    { sprite: 'girl_left_walk_2', time: 0.2 }
+    { sprite: heroName+'_left_walk_1', time: heroAnimSpeed },
+    { sprite: heroName+'_left_walk_2', time: heroAnimSpeed },
+    { sprite: heroName+'_left_walk_3', time: heroAnimSpeed },
+    { sprite: heroName+'_left_walk_2', time: heroAnimSpeed }
 ], sprites);
 var heroWalkRight = new Animation([
-    { sprite: 'girl_right_walk_1', time: 0.2 },
-    { sprite: 'girl_right_walk_2', time: 0.2 },
-    { sprite: 'girl_right_walk_3', time: 0.2 },
-    { sprite: 'girl_right_walk_2', time: 0.2 }
+    { sprite: heroName+'_right_walk_1', time: heroAnimSpeed },
+    { sprite: heroName+'_right_walk_2', time: heroAnimSpeed },
+    { sprite: heroName+'_right_walk_3', time: heroAnimSpeed },
+    { sprite: heroName+'_right_walk_2', time: heroAnimSpeed }
 ], sprites);
-heroImage.onload = function () {
-	heroReady = true;
-};
-heroImage.src = "images/characterSprites.png";
 
 
 
 
-
-
-
-// Monster image
-var monsterReady = false;
-var monsterImage = new Image();
-var monsterAnimSpeed = .6;
+// Zombie Animations
+var zombieAnimSpeed = .6;
 var zombieWalkForward = new Animation([
-    { sprite: 'zombie_forward_walk_1', time: monsterAnimSpeed },
-    { sprite: 'zombie_forward_walk_2', time: monsterAnimSpeed },
-    { sprite: 'zombie_forward_walk_3', time: monsterAnimSpeed },
-    { sprite: 'zombie_forward_walk_2', time: monsterAnimSpeed }
+    { sprite: 'zombie_forward_walk_1', time: zombieAnimSpeed },
+    { sprite: 'zombie_forward_walk_2', time: zombieAnimSpeed },
+    { sprite: 'zombie_forward_walk_3', time: zombieAnimSpeed },
+    { sprite: 'zombie_forward_walk_2', time: zombieAnimSpeed }
 ], sprites);
 var zombieWalkLeft = new Animation([
-    { sprite: 'zombie_left_walk_1', time: monsterAnimSpeed },
-    { sprite: 'zombie_left_walk_2', time: monsterAnimSpeed },
-    { sprite: 'zombie_left_walk_3', time: monsterAnimSpeed },
-    { sprite: 'zombie_left_walk_2', time: monsterAnimSpeed }
+    { sprite: 'zombie_left_walk_1', time: zombieAnimSpeed },
+    { sprite: 'zombie_left_walk_2', time: zombieAnimSpeed },
+    { sprite: 'zombie_left_walk_3', time: zombieAnimSpeed },
+    { sprite: 'zombie_left_walk_2', time: zombieAnimSpeed }
 ], sprites);
 var zombieWalkRight = new Animation([
-    { sprite: 'zombie_right_walk_1', time: monsterAnimSpeed },
-    { sprite: 'zombie_right_walk_2', time: monsterAnimSpeed },
-    { sprite: 'zombie_right_walk_3', time: monsterAnimSpeed },
-    { sprite: 'zombie_right_walk_2', time: monsterAnimSpeed }
+    { sprite: 'zombie_right_walk_1', time: zombieAnimSpeed },
+    { sprite: 'zombie_right_walk_2', time: zombieAnimSpeed },
+    { sprite: 'zombie_right_walk_3', time: zombieAnimSpeed },
+    { sprite: 'zombie_right_walk_2', time: zombieAnimSpeed }
 ], sprites);
 var zombieWalkBack = new Animation([
-    { sprite: 'zombie_back_walk_1', time: monsterAnimSpeed },
-    { sprite: 'zombie_back_walk_2', time: monsterAnimSpeed },
-    { sprite: 'zombie_back_walk_3', time: monsterAnimSpeed },
-    { sprite: 'zombie_back_walk_2', time: monsterAnimSpeed }
+    { sprite: 'zombie_back_walk_1', time: zombieAnimSpeed },
+    { sprite: 'zombie_back_walk_2', time: zombieAnimSpeed },
+    { sprite: 'zombie_back_walk_3', time: zombieAnimSpeed },
+    { sprite: 'zombie_back_walk_2', time: zombieAnimSpeed }
 ], sprites);
-monsterImage.onload = function () {
-	monsterReady = true;
-};
-monsterImage.src = "images/characterSprites.png";
+
+
+
+// Nemisis Animations
+var nemesisAnimSpeed = .4;
+var nemesisWalkForward = new Animation([
+    { sprite: 'nemesis_forward_walk_1', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_forward_walk_2', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_forward_walk_3', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_forward_walk_2', time: nemesisAnimSpeed }
+], sprites);
+var nemesisWalkLeft = new Animation([
+    { sprite: 'nemesis_left_walk_1', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_left_walk_2', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_left_walk_3', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_left_walk_2', time: nemesisAnimSpeed }
+], sprites);
+var nemesisWalkRight = new Animation([
+    { sprite: 'nemesis_right_walk_1', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_right_walk_2', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_right_walk_3', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_right_walk_2', time: nemesisAnimSpeed }
+], sprites);
+var nemesisWalkBack = new Animation([
+    { sprite: 'nemesis_back_walk_1', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_back_walk_2', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_back_walk_3', time: nemesisAnimSpeed },
+    { sprite: 'nemesis_back_walk_2', time: nemesisAnimSpeed }
+], sprites);
 
 
 
 
 
+
+// Positions and Boundry Helpers
+var roomOffsetTop = 0;
+var roomOffsetLeft = 0;
+var bounds = {
+	top: 0,
+	left: 0,
+	right: (CANVAS_WIDTH - CHARACTER_SPRITE_WIDTH_SCALED),
+	bottom: (CANVAS_HEIGHT - CHARACTER_SPRITE_HEIGHT_SCALED)
+}
 
 
 // Game objects
 var hero = {
-	speed: 256 // movement in pixels per second
+	speed: 256, // movement in pixels per second
+	animation: heroWalkForward,
+	moving: false,
+	direction: "forward",
+	lifeRemaining: 3
 };
-hero.animation = heroWalkForward;
-hero.moving = false;
-hero.direction = "forward";
 
-var monstersInGame = 3;
 var monsters = Array();
-for (var i=0;i<monstersInGame;i++){
+var monstersCaught = 0;
+for (var i=0;i<levels[currentLevel-1].monstersInGame;i++){
 	monsters[i]={
 		speed: 20
 	};
 }
-var monstersCaught = 0;
 
-
-
-
-
-
-// Handle keyboard controls
-var keysDown = {};
-addEventListener("keydown", function (e) {
-	keysDown[e.keyCode] = true;
-}, false);
-addEventListener("keyup", function (e) {
-	delete keysDown[e.keyCode];
-}, false);
-
+var nemisis = {
+	speed: 100, // movement in pixels per second
+	animation: nemesisWalkForward,
+	direction: "forward"
+};
 
 
 function resetMonster(monsterId)
 {
 	// Randomly Position Monster
-	monsters[monsterId].posX = 32 + (Math.random() * (roomWidth - 64));
-	monsters[monsterId].posY = 32 + (Math.random() * (roomHeight - 64));
+	monsters[monsterId].posX = 32 + (Math.random() * (levels[currentLevel-1].roomWidth - 64));
+	monsters[monsterId].posY = 32 + (Math.random() * (levels[currentLevel-1].roomHeight - 64));
 	monsters[monsterId].x = monsters[monsterId].posX - roomOffsetLeft;
 	monsters[monsterId].y = monsters[monsterId].posY - roomOffsetTop;
 	
@@ -258,6 +318,26 @@ function resetMonster(monsterId)
 }
 
 
+function resetHero()
+{
+	roomOffsetTop = 0;
+	roomOffsetLeft = 0;
+	hero.x = CANVAS_WIDTH / 2;
+	hero.y = CANVAS_HEIGHT / 2;
+}
+
+
+
+
+
+// Handle keyboard controls
+var keysDown = {};
+addEventListener("keydown", function (e) {
+	keysDown[e.keyCode] = true;
+}, false);
+addEventListener("keyup", function (e) {
+	delete keysDown[e.keyCode];
+}, false);
 
 
 // Update game objects
@@ -269,10 +349,10 @@ var update = function (modifier) {
 	
 	if (38 in keysDown)  // Player holding up
 	{
-		backgroundSlideTrigger = bounds.top+(2*spriteWidth);
+		backgroundSlideTrigger = bounds.top+(2*CHARACTER_SPRITE_WIDTH);
 		roomOffsetBoundry = 0;
 		
-		if ( hero.y < backgroundSlideTrigger && roomOffsetTop > roomOffsetBoundry )
+		if ( hero.y <= backgroundSlideTrigger && roomOffsetTop > roomOffsetBoundry )
 		{
 			roomOffsetTop -= playerDelta;
 			if( roomOffsetTop < roomOffsetBoundry ) roomOffsetTop = roomOffsetBoundry;
@@ -286,10 +366,10 @@ var update = function (modifier) {
 	}
 	else if (40 in keysDown)  // Player holding down
 	{
-		backgroundSlideTrigger = bounds.bottom-(2*spriteWidth);
-		roomOffsetBoundry = roomHeight - canvas.height;
+		backgroundSlideTrigger = bounds.bottom-(2*CHARACTER_SPRITE_WIDTH);
+		roomOffsetBoundry = levels[currentLevel-1].roomHeight - CANVAS_HEIGHT;
 		
-		if ( hero.y > backgroundSlideTrigger && roomOffsetTop < roomOffsetBoundry )
+		if ( hero.y >= backgroundSlideTrigger && roomOffsetTop < roomOffsetBoundry )
 		{
 			roomOffsetTop += playerDelta;
 			if( roomOffsetTop > roomOffsetBoundry ) roomOffsetTop = roomOffsetBoundry;
@@ -303,10 +383,10 @@ var update = function (modifier) {
 	}
 	else if (37 in keysDown) // Player holding left
 	{
-		backgroundSlideTrigger = bounds.left+(2*spriteWidth);
+		backgroundSlideTrigger = bounds.left+(2*CHARACTER_SPRITE_WIDTH);
 		roomOffsetBoundry = 0;
 
-		if ( hero.x < backgroundSlideTrigger && roomOffsetLeft > roomOffsetBoundry )
+		if ( hero.x <= backgroundSlideTrigger && roomOffsetLeft > roomOffsetBoundry )
 		{
 			roomOffsetLeft -= playerDelta;
 			if( roomOffsetLeft < roomOffsetBoundry ) roomOffsetLeft = roomOffsetBoundry;
@@ -319,10 +399,10 @@ var update = function (modifier) {
 	}
 	else if (39 in keysDown) // Player holding right
 	{
-		backgroundSlideTrigger = bounds.right-(2*spriteWidth);
-		roomOffsetBoundry = roomWidth - canvas.width;
+		backgroundSlideTrigger = bounds.right-(2*CHARACTER_SPRITE_WIDTH);
+		roomOffsetBoundry =  levels[currentLevel-1].roomWidth - CANVAS_WIDTH;
 		
-		if ( hero.x > backgroundSlideTrigger && roomOffsetLeft < roomOffsetBoundry )
+		if ( hero.x >= backgroundSlideTrigger && roomOffsetLeft < roomOffsetBoundry )
 		{
 			roomOffsetLeft += playerDelta;
 			if( roomOffsetLeft > roomOffsetBoundry ) roomOffsetLeft = roomOffsetBoundry;
@@ -344,11 +424,23 @@ var update = function (modifier) {
 	if ( hero.x <= bounds.left )   { hero.x = bounds.left ; }
 	if ( hero.x >= bounds.right )  { hero.x = bounds.right; }
 	
+	
+	// Hero / Nemisis Collisions
+	if (
+		hero.x <= (nemisis.x + CHARACTER_SPRITE_WIDTH_SCALED)
+		&& nemisis.x <= (hero.x + CHARACTER_SPRITE_WIDTH_SCALED)
+		&& hero.y <= (nemisis.y + CHARACTER_SPRITE_HEIGHT_SCALED)
+		&& nemisis.y <= (hero.y + CHARACTER_SPRITE_HEIGHT_SCALED)
+	) {
+		--hero.lifeRemaining;
+		resetHero();
+	}
+	
 
 
 	// Move the monster
 	// Check For Collisions
-	for (var i=0;i<monstersInGame;i++)
+	for (var i=0;i<levels[currentLevel-1].monstersInGame;i++)
 	{
 		
 		// Increment Monster Movement
@@ -372,14 +464,16 @@ var update = function (modifier) {
 		// Adjust for map movement
 		monsters[i].x = monsters[i].posX - roomOffsetLeft;
 		monsters[i].y = monsters[i].posY - roomOffsetTop;
+		nemisis.x = nemisis.posX - roomOffsetLeft;
+		nemisis.y = nemisis.posY - roomOffsetTop;
 		
 		
 		// Hero / Monster Collisions
 		if (
-			hero.x <= (monsters[i].x + spriteWidthScaled)
-			&& monsters[i].x <= (hero.x + spriteWidthScaled)
-			&& hero.y <= (monsters[i].y + spriteHeightScaled)
-			&& monsters[i].y <= (hero.y + spriteHeightScaled)
+			hero.x <= (monsters[i].x + CHARACTER_SPRITE_WIDTH_SCALED)
+			&& monsters[i].x <= (hero.x + CHARACTER_SPRITE_WIDTH_SCALED)
+			&& hero.y <= (monsters[i].y + CHARACTER_SPRITE_HEIGHT_SCALED)
+			&& monsters[i].y <= (hero.y + CHARACTER_SPRITE_HEIGHT_SCALED)
 		) {
 			++monstersCaught;
 			resetMonster(i)
@@ -390,7 +484,7 @@ var update = function (modifier) {
 			monsters[i].direction = DIRECTION_FORWARD;
 			monsters[i].animation = zombieWalkForward;
 		}
-		if ( (monsters[i].posY + spriteHeightScaled) >= roomHeight ) {
+		if ( (monsters[i].posY + CHARACTER_SPRITE_HEIGHT_SCALED) >= levels[currentLevel-1].roomHeight ) {
 			monsters[i].direction = DIRECTION_BACK;
 			monsters[i].animation = zombieWalkBack;
 		}
@@ -398,7 +492,7 @@ var update = function (modifier) {
 			monsters[i].direction = DIRECTION_RIGHT;
 			monsters[i].animation = zombieWalkRight;
 		}
-		if ( (monsters[i].posX + spriteWidthScaled) >= roomWidth ) {
+		if ( (monsters[i].posX + CHARACTER_SPRITE_WIDTH_SCALED) >=  levels[currentLevel-1].roomWidth ) {
 			monsters[i].direction = DIRECTION_LEFT;
 			monsters[i].animation = zombieWalkLeft;
 		}
@@ -410,60 +504,115 @@ var update = function (modifier) {
 
 // Draw everything
 var render = function (modifier) {
-	ctx.clearRect(0,0,canvas.width,canvas.height);
+	ctx.clearRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT);
 	
 	if (bgReady) {
-		ctx.drawImage(bgImage, roomOffsetLeft, roomOffsetTop, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+		ctx.drawImage(bgImage, roomOffsetLeft, roomOffsetTop, CANVAS_WIDTH, CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 	}
 
-	if (heroReady) {
+	if (characterSpritesReady)
+	{
 		var frame = '';
+		
+		// Update and draw Hero
 		if (!hero.moving) {
 			switch( hero.direction ) {
 				case "forward":
-					frame = sprites.getOffset('girl_forward_walk_2');
+					frame = sprites.getOffset(heroName+'_forward_walk_2');
 					break;
 				case "back":
-					frame = sprites.getOffset('girl_back_walk_2');
+					frame = sprites.getOffset(heroName+'_back_walk_2');
 					break;
 				case "left":
-					frame = sprites.getOffset('girl_left_walk_2');
+					frame = sprites.getOffset(heroName+'_left_walk_2');
 					break;
 				case "right":
-					frame = sprites.getOffset('girl_right_walk_2');
+					frame = sprites.getOffset(heroName+'_right_walk_2');
 					break;
 			}
-			ctx.drawImage(heroImage, frame.x, frame.y, spriteWidth, spriteHeight, hero.x, hero.y, spriteWidthScaled, spriteHeightScaled);
+			ctx.drawImage(characterSpritesImage, frame.x, frame.y, CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, hero.x, hero.y, CHARACTER_SPRITE_WIDTH_SCALED, CHARACTER_SPRITE_HEIGHT_SCALED);
 		} else {
 			hero.animation.animate(modifier);
 			frame = hero.animation.getSprite();
-			ctx.drawImage(heroImage, frame.x, frame.y, spriteWidth, spriteHeight, hero.x, hero.y, spriteWidthScaled, spriteHeightScaled);
+			ctx.drawImage(characterSpritesImage, frame.x, frame.y, CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, hero.x, hero.y, CHARACTER_SPRITE_WIDTH_SCALED, CHARACTER_SPRITE_HEIGHT_SCALED);
 		}
-	}
 
-	if (monsterReady) {
-		for (var i=0;i<monstersInGame;i++)
+		// Update and Draw Each Zombie
+		for (var i=0;i<levels[currentLevel-1].monstersInGame;i++)
 		{
 			monsters[i].animation.animate(modifier);
 			frame = monsters[i].animation.getSprite();
-			ctx.drawImage(monsterImage, frame.x, frame.y, spriteWidth, spriteHeight, monsters[i].x, monsters[i].y, spriteWidthScaled, spriteHeightScaled);
+			ctx.drawImage(characterSpritesImage, frame.x, frame.y, CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, monsters[i].x, monsters[i].y, CHARACTER_SPRITE_WIDTH_SCALED, CHARACTER_SPRITE_HEIGHT_SCALED);
 		}
+		
+		// Update Nemisis
+		nemisis.animation.animate(modifier);
+		frame = nemisis.animation.getSprite();
+		ctx.drawImage(characterSpritesImage, frame.x, frame.y, CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, nemisis.x, nemisis.y, CHARACTER_SPRITE_WIDTH_SCALED, CHARACTER_SPRITE_HEIGHT_SCALED);
 	}
 
-	// Score
+	// Draw Score
 	ctx.fillStyle = "rgb(250, 250, 250)";
 	ctx.font = "24px Helvetica";
 	ctx.textAlign = "left";
 	ctx.textBaseline = "top";
 	ctx.fillText("Zombies caught: " + monstersCaught, 32, 32);
+	
+	// Draw Life
+	ctx.fillStyle = "rgb(250, 250, 250)";
+	ctx.font = "24px Helvetica";
+	ctx.textAlign = "left";
+	ctx.textBaseline = "top";
+	ctx.fillText("Life: " + hero.lifeRemaining, 300, 32);
+	
+	
 };
 
+
+
+
+function setUpLevel()
+{
+	// Throw the monster somewhere in the room randomly
+	for (var i=0;i<levels[currentLevel-1].monstersInGame;i++){
+		resetMonster(i);
+	}
+	
+	nemisis.posX = 32 + (Math.random() * (levels[currentLevel-1].roomWidth - 64));
+	nemisis.posY = 32 + (Math.random() * (levels[currentLevel-1].roomHeight - 64));
+	nemisis.x = nemisis.posX - roomOffsetLeft;
+	nemisis.y = nemisis.posY - roomOffsetTop;
+	
+	// Position Hero in the Center of the Screen
+	hero.x = CANVAS_WIDTH / 2;
+	hero.y = CANVAS_HEIGHT / 2;
+}
+
+function startGameLoop() {
+	then = Date.now();
+	gameLoop = setInterval(main, 1); // Execute as fast as possible
+	gameRunning = true;
+	$('#toggleGame').html("Pause Game");
+}
+
+function stopGameLoop() {
+	clearInterval(gameLoop);
+	gameRunning = false;
+	$('#toggleGame').html("Resume Game");
+}
 
 
 
 
 // The main game loop
 var main = function () {
+	
+	if( hero.lifeRemaining <= 0 )
+	{
+		stopGameLoop();
+		console.log('game over');
+	}
+	
 	var now = Date.now();
 	var delta = now - then;
 
@@ -472,33 +621,6 @@ var main = function () {
 
 	then = now;
 };
-
-
-function setUpLevel()
-{
-	// Throw the monster somewhere in the room randomly
-	for (var i=0;i<monstersInGame;i++){
-		resetMonster(i);
-	}
-	
-	// Position Hero in the Center of the Screen
-	hero.x = canvas.width / 2;
-	hero.y = canvas.height / 2;
-}
-
-function startGameLoop() {
-	then = Date.now();
-	gameLoop = setInterval(main, 1); // Execute as fast as possible
-	gameRunning = true;
-	console.log('game starting');
-}
-
-function stopGameLoop() {
-	clearInterval(gameLoop);
-	gameRunning = false;
-	console.log('game stopped');
-}
-
 
 
 // Let's play this game!
