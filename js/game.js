@@ -1,6 +1,7 @@
 // constants
 var CANVAS_WIDTH = 640;
 var CANVAS_HEIGHT = 480;
+var PLAY_AREA_HEIGHT = 420;
 var DIRECTION_FORWARD = 1;
 var DIRECTION_LEFT = 2;
 var DIRECTION_RIGHT = 3;
@@ -9,6 +10,7 @@ var CHARACTER_SPRITE_WIDTH = 32;
 var CHARACTER_SPRITE_HEIGHT = 32;
 var CHARACTER_SPRITE_WIDTH_SCALED = 48;
 var CHARACTER_SPRITE_HEIGHT_SCALED = 48;
+var CONTROL_PANEL_HEIGHT = 60;
 
 
 // Game Loop / Timing
@@ -259,7 +261,7 @@ var bounds = {
 	top: 0,
 	left: 0,
 	right: (CANVAS_WIDTH - CHARACTER_SPRITE_WIDTH_SCALED),
-	bottom: (CANVAS_HEIGHT - CHARACTER_SPRITE_HEIGHT_SCALED)
+	bottom: (PLAY_AREA_HEIGHT - CHARACTER_SPRITE_HEIGHT_SCALED )
 }
 
 
@@ -272,18 +274,54 @@ var hero = {
 	lifeRemaining: 3
 };
 
+
+
+
+
+
+function Monster() {}
+Monster.prototype.reverseDirection = function()
+{
+	switch (this.direction)
+	{
+		case DIRECTION_BACK:
+			this.direction = DIRECTION_FORWARD;
+			this.animation = zombieWalkForward;
+			break;
+		case DIRECTION_FORWARD:
+			this.direction = DIRECTION_BACK;
+			this.animation = zombieWalkBack;
+			break;
+		case DIRECTION_LEFT:
+			this.direction = DIRECTION_RIGHT;
+			this.animation = zombieWalkRight;
+			break;
+		case DIRECTION_RIGHT:
+			this.direction = DIRECTION_LEFT;
+			this.animation = zombieWalkLeft;
+			break;
+	}
+};
+
 var monsters = Array();
 var monstersCaught = 0;
 for (var i=0;i<levels[currentLevel-1].monstersInGame;i++){
-	monsters[i]={
-		speed: 20
-	};
+	monsters[i] = new Monster();
+	monsters[i].speed = 20;
 }
+
+
+
+
+
+
 
 var nemisis = {
 	speed: 100, // movement in pixels per second
 	animation: nemesisWalkForward,
-	direction: "forward"
+	direction: DIRECTION_FORWARD,
+	lastRedirect: 0,
+	redirectRate: 2500
 };
 
 
@@ -346,6 +384,7 @@ var update = function (modifier) {
 	var backgroundSlideTrigger = 0;
 	var roomOffsetBoundry = 0;
 	var playerDelta = hero.speed * modifier;
+	var currentCounter = Date.now();
 	
 	if (38 in keysDown)  // Player holding up
 	{
@@ -367,7 +406,7 @@ var update = function (modifier) {
 	else if (40 in keysDown)  // Player holding down
 	{
 		backgroundSlideTrigger = bounds.bottom-(2*CHARACTER_SPRITE_WIDTH);
-		roomOffsetBoundry = levels[currentLevel-1].roomHeight - CANVAS_HEIGHT;
+		roomOffsetBoundry = levels[currentLevel-1].roomHeight - PLAY_AREA_HEIGHT;
 		
 		if ( hero.y >= backgroundSlideTrigger && roomOffsetTop < roomOffsetBoundry )
 		{
@@ -435,7 +474,82 @@ var update = function (modifier) {
 		--hero.lifeRemaining;
 		resetHero();
 	}
+
+
+	// Move Nemisis
+	// Check For Collisions
+	// Increment Monster Movement
+	var nemisisDelta = nemisis.speed * modifier;
+	switch (nemisis.direction)
+	{
+		case DIRECTION_FORWARD:
+			nemisis.posY += nemisisDelta;
+			break;
+		case DIRECTION_LEFT:
+			nemisis.posX -= nemisisDelta;
+			break;
+		case DIRECTION_RIGHT:
+			nemisis.posX += nemisisDelta;
+			break;
+		case DIRECTION_BACK:
+			nemisis.posY -= nemisisDelta;
+			break;
+	}
+
+	// Adjust for map movement
+	nemisis.x = nemisis.posX - roomOffsetLeft;
+	nemisis.y = nemisis.posY - roomOffsetTop;
 	
+	// Border Collisions
+	if ( nemisis.posY <= 0 ) {
+		nemisis.direction = DIRECTION_FORWARD;
+		nemisis.animation = nemesisWalkForward;
+		nemisis.lastRedirect = Date.now();
+	}
+	if ( (nemisis.posY + CHARACTER_SPRITE_HEIGHT_SCALED) >= levels[currentLevel-1].roomHeight ) {
+		nemisis.direction = DIRECTION_BACK;
+		nemisis.animation = nemesisWalkBack;
+		nemisis.lastRedirect = Date.now();
+	}
+	if ( nemisis.posX <= 0 ) {
+		nemisis.direction = DIRECTION_RIGHT;
+		nemisis.animation = nemesisWalkRight;
+		nemisis.lastRedirect = Date.now();
+	}
+	if ( (nemisis.posX + CHARACTER_SPRITE_WIDTH_SCALED) >=  levels[currentLevel-1].roomWidth ) {
+		nemisis.direction = DIRECTION_LEFT;
+		nemisis.animation = nemesisWalkLeft;
+		nemisis.lastRedirect = Date.now();
+	}
+	
+	// Update Nemisis Redirection every so often
+	if( currentCounter - nemisis.lastRedirect > nemisis.redirectRate )
+	{
+		if (Math.random()>0.6) // Redirect 40% of the time
+		{
+			console.log('nemisis redirecting');
+			var newDirection;
+			do {
+				newDirection = Math.floor((Math.random()*4)+1);
+			} while ( newDirection == nemisis.direction );
+			nemisis.direction = newDirection;
+			switch( nemisis.direction ) {
+				case DIRECTION_FORWARD:
+					nemisis.animation = nemesisWalkForward;
+					break;
+				case DIRECTION_LEFT:
+					nemisis.animation = nemesisWalkLeft;
+					break;
+				case DIRECTION_RIGHT:
+					nemisis.animation = nemesisWalkRight;
+					break;
+				case DIRECTION_BACK:
+					nemisis.animation = nemesisWalkBack;
+					break; 
+			}
+			nemisis.lastRedirect = currentCounter;
+		}
+	}
 
 
 	// Move the monster
@@ -464,8 +578,6 @@ var update = function (modifier) {
 		// Adjust for map movement
 		monsters[i].x = monsters[i].posX - roomOffsetLeft;
 		monsters[i].y = monsters[i].posY - roomOffsetTop;
-		nemisis.x = nemisis.posX - roomOffsetLeft;
-		nemisis.y = nemisis.posY - roomOffsetTop;
 		
 		
 		// Hero / Monster Collisions
@@ -479,24 +591,28 @@ var update = function (modifier) {
 			resetMonster(i)
 		}
 		
-		// Border Collisions
-		if ( monsters[i].posY <= 0 ) {
-			monsters[i].direction = DIRECTION_FORWARD;
-			monsters[i].animation = zombieWalkForward;
+		
+		// Nemesis / Monster Collisions
+		if(
+			nemisis.x <= (monsters[i].x + CHARACTER_SPRITE_WIDTH_SCALED)
+			&& monsters[i].x <= (nemisis.x + CHARACTER_SPRITE_WIDTH_SCALED)
+			&& nemisis.y <= (monsters[i].y + CHARACTER_SPRITE_HEIGHT_SCALED)
+			&& monsters[i].y <= (nemisis.y + CHARACTER_SPRITE_HEIGHT_SCALED)
+		) {
+			
 		}
-		if ( (monsters[i].posY + CHARACTER_SPRITE_HEIGHT_SCALED) >= levels[currentLevel-1].roomHeight ) {
-			monsters[i].direction = DIRECTION_BACK;
-			monsters[i].animation = zombieWalkBack;
-		}
-		if ( monsters[i].posX <= 0 ) {
-			monsters[i].direction = DIRECTION_RIGHT;
-			monsters[i].animation = zombieWalkRight;
-		}
-		if ( (monsters[i].posX + CHARACTER_SPRITE_WIDTH_SCALED) >=  levels[currentLevel-1].roomWidth ) {
-			monsters[i].direction = DIRECTION_LEFT;
-			monsters[i].animation = zombieWalkLeft;
+		
+		// Monster/Border Collisions
+		if ( (monsters[i].posY <= 0 && monsters[i].direction == DIRECTION_BACK) ||
+			 (monsters[i].posX <= 0 && monsters[i].direction == DIRECTION_LEFT) ||
+			 ((monsters[i].posY + CHARACTER_SPRITE_HEIGHT_SCALED) >= levels[currentLevel-1].roomHeight && monsters[i].direction == DIRECTION_FORWARD) ||
+			 ((monsters[i].posX + CHARACTER_SPRITE_WIDTH_SCALED) >=  levels[currentLevel-1].roomWidth && monsters[i].direction == DIRECTION_RIGHT)
+		) {
+			monsters[i].reverseDirection();
 		}
 	}
+
+
 };
 
 
@@ -507,7 +623,7 @@ var render = function (modifier) {
 	ctx.clearRect(0,0,CANVAS_WIDTH,CANVAS_HEIGHT);
 	
 	if (bgReady) {
-		ctx.drawImage(bgImage, roomOffsetLeft, roomOffsetTop, CANVAS_WIDTH, CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+		ctx.drawImage(bgImage, roomOffsetLeft, roomOffsetTop, CANVAS_WIDTH, PLAY_AREA_HEIGHT, 0, 0, CANVAS_WIDTH, PLAY_AREA_HEIGHT);
 	}
 
 	if (characterSpritesReady)
@@ -550,20 +666,29 @@ var render = function (modifier) {
 		frame = nemisis.animation.getSprite();
 		ctx.drawImage(characterSpritesImage, frame.x, frame.y, CHARACTER_SPRITE_WIDTH, CHARACTER_SPRITE_HEIGHT, nemisis.x, nemisis.y, CHARACTER_SPRITE_WIDTH_SCALED, CHARACTER_SPRITE_HEIGHT_SCALED);
 	}
+	
+	// Draw Control Panel
+	ctx.fillStyle = "rgb(0, 0, 0)";
+	ctx.fillRect(0,(CANVAS_HEIGHT-CONTROL_PANEL_HEIGHT),CANVAS_WIDTH,CONTROL_PANEL_HEIGHT);
+
+	// Set up font Styles
+	ctx.fillStyle = "rgb(250, 250, 250)";
+	ctx.font = "24px 'VT323'";
+	ctx.textAlign = "left";
+	ctx.textBaseline = "top";
 
 	// Draw Score
-	ctx.fillStyle = "rgb(250, 250, 250)";
-	ctx.font = "24px Helvetica";
-	ctx.textAlign = "left";
-	ctx.textBaseline = "top";
-	ctx.fillText("Zombies caught: " + monstersCaught, 32, 32);
+	ctx.fillText("ZOMBIES SLAIN: " + monstersCaught, 20, 425);
+	
+	// Draw Level
+	ctx.fillText("LEVEL: " + currentLevel, 20, 450);
 	
 	// Draw Life
-	ctx.fillStyle = "rgb(250, 250, 250)";
-	ctx.font = "24px Helvetica";
-	ctx.textAlign = "left";
-	ctx.textBaseline = "top";
-	ctx.fillText("Life: " + hero.lifeRemaining, 300, 32);
+	ctx.textAlign = "right";
+	ctx.fillText("LIFE: " + hero.lifeRemaining, 620, 425);
+
+	// Draw Timer
+	// - To be implemented
 	
 	
 };
@@ -610,7 +735,7 @@ var main = function () {
 	if( hero.lifeRemaining <= 0 )
 	{
 		stopGameLoop();
-		console.log('game over');
+		alert('game over');
 	}
 	
 	var now = Date.now();
